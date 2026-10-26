@@ -1,0 +1,905 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Розв’язуємо рівняння</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Макет: одна «аркушева» сторінка зі смужкою з чотирьох кольорів зверху, завдання колонкою, нижче картка з результатом. */
+:root {
+  --display: 'Comfortaa', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+
+  --bg: #F3F7FC;
+  --surface: #FFFFFF;
+  --ink: #1E2B4A;
+  --muted: #56627E;
+  --line: #D6E0EE;
+
+  /* кольори завдань, як на сторінці підручника */
+  --y: #FFE45C;
+  --o: #FFA77A;
+  --b: #7AD3F7;
+  --g: #B5DA62;
+  --on-tab: #1E2B4A;
+
+  /* кольори пунктирних рамок */
+  --pink: #D63A92;
+  --violet: #6F55CC;
+  --sky: #1479B8;
+  --amber: #D9651C;
+  --lime: #4F8A12;
+
+  /* стан відповіді */
+  --ok: #167A40;
+  --ok-bg: #DDF5E5;
+  --bad: #B52A2A;
+  --bad-bg: #FDE2E2;
+  --cur-bg: #FFF1A8;
+  --cur-ring: #E6AB00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10172A; --surface: #1A2442; --ink: #EAF0FF; --muted: #A5B2D0; --line: #2D3963;
+    --pink: #FF7CC2; --violet: #AFA2FF; --sky: #62C9FF; --amber: #FFA96B; --lime: #A9DD5C;
+    --ok: #5DDB8F; --ok-bg: #17402B; --bad: #FF8383; --bad-bg: #4B2121;
+    --cur-bg: #4C4412; --cur-ring: #FFD84A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10172A; --surface: #1A2442; --ink: #EAF0FF; --muted: #A5B2D0; --line: #2D3963;
+  --pink: #FF7CC2; --violet: #AFA2FF; --sky: #62C9FF; --amber: #FFA96B; --lime: #A9DD5C;
+  --ok: #5DDB8F; --ok-bg: #17402B; --bad: #FF8383; --bad-bg: #4B2121;
+  --cur-bg: #4C4412; --cur-ring: #FFD84A;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 4px 48px;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--bg);
+}
+button { font-family: inherit; }
+button:focus-visible { outline: 3px solid var(--cur-ring); outline-offset: 2px; }
+
+.app { max-width: 780px; margin: 0 auto; }
+.hero { padding: 16px 0 8px; }
+.hero h1 {
+  margin: 0 0 6px; font: 700 clamp(1.7rem, 6vw, 2.3rem)/1.15 var(--display); text-wrap: balance;
+}
+.hero p { margin: 0; max-width: 62ch; color: var(--muted); font-weight: 600; }
+
+/* панель прогресу */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.count { font: 800 .95rem var(--body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dots { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+.dot {
+  width: 20px; height: 20px; padding: 0; border-radius: 50%;
+  border: 2px solid var(--line); background: transparent; color: var(--muted);
+  display: grid; place-items: center; font: 800 .7rem/1 var(--body);
+}
+button.dot { cursor: pointer; }
+.dot.ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.dot.bad { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+.dots.big { gap: 6px; }
+.dots.big .dot { width: 30px; height: 30px; font-size: .95rem; }
+
+.btn {
+  min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; cursor: pointer;
+  background: var(--ink); color: var(--surface); font: 800 .95rem var(--body); white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.15); }
+@media (max-width: 480px) { .bar { gap: 8px; } .bar .dots { gap: 3px; } .bar .dot { width: 16px; height: 16px; border-width: 1.5px; font-size: .6rem; } .bar .btn .lbl { display: none; } .bar .btn { padding: 0 14px; font-size: 1.2rem; } }
+
+/* лист із завданнями */
+.sheet {
+  margin-top: 14px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 20px; overflow: hidden;
+}
+.strip { display: flex; height: 14px; }
+.strip i { flex: 1; }
+.strip i:nth-child(1) { background: var(--y); }
+.strip i:nth-child(2) { background: var(--o); }
+.strip i:nth-child(3) { background: var(--b); }
+.strip i:nth-child(4) { background: var(--g); }
+.sheet-in { padding: 4px clamp(14px, 4vw, 28px) 12px; }
+
+.task { display: grid; gap: 12px; padding-block: 20px; }
+.task + .task { border-top: 2px dashed var(--line); }
+.t1 { --tc: var(--y); } .t2 { --tc: var(--o); } .t3 { --tc: var(--b); } .t4 { --tc: var(--g); }
+.task-head { display: flex; gap: 12px; align-items: center; }
+.tab {
+  flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--tc); color: var(--on-tab); font: 700 1.15rem var(--display);
+}
+.task-head h2 { margin: 0; font: 800 1.08rem/1.3 var(--body); text-wrap: balance; }
+.task-head .hint { display: block; margin-top: 2px; font-size: .88rem; font-weight: 600; color: var(--muted); }
+
+.list { display: grid; }
+.row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 0;
+}
+.row + .row { border-top: 1px solid var(--line); }
+.row .eq { flex: 1 1 11rem; min-width: 0; }
+.row .choices { flex: 0 1 auto; }
+.row .note { flex-basis: 100%; }
+
+/* рівняння: підсвічується те, яке розв’язуєш зараз */
+.eq {
+  display: inline-block; width: fit-content; max-width: 100%;
+  font: 700 1.6rem/1.25 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap;
+  padding: .12em .55em; border-radius: 14px; border: 2.5px solid transparent;
+  transition: background .2s, border-color .2s, color .2s;
+}
+.item.current .eq { background: var(--cur-bg); border-color: var(--cur-ring); }
+.item.ok .eq { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.item.bad .eq { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+.step { font: 600 1.35rem/1.3 var(--display); font-variant-numeric: tabular-nums; padding: 0 .65em; white-space: nowrap; }
+
+.choices { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+  --chip-c: var(--sky);
+  min-height: 46px; min-width: 46px; padding: 0 16px; cursor: pointer;
+  border: 2.5px dashed var(--chip-c); border-radius: 12px; background: transparent; color: var(--ink);
+  font: 700 1.1rem/1 var(--display); transition: background .15s, transform .1s;
+}
+.chip.small { font-size: 1rem; padding: 0 12px; min-width: 44px; }
+.chip:hover:not(:disabled) { background: color-mix(in srgb, var(--chip-c) 16%, transparent); }
+.chip:active:not(:disabled) { transform: scale(.97); }
+.chip:disabled { cursor: default; color: var(--ink); }
+.chip:disabled:not(.ok):not(.bad):not(.reveal) { opacity: .5; }
+.chip.ok { border-style: solid; border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+.chip.bad { border-style: solid; border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.chip.reveal { border-style: solid; border-color: var(--ok); background: transparent; color: var(--ok); }
+.chip.ok::after, .chip.reveal::after { content: " ✓"; }
+.chip.bad::after { content: " ✗"; }
+
+.note { font: 700 .93rem/1.4 var(--body); min-height: 0; }
+.note:empty { display: none; }
+.note.ok { color: var(--ok); }
+.note.bad { color: var(--bad); }
+
+/* завдання 2 */
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 14px; }
+.solved {
+  display: grid; gap: 6px; align-content: start; justify-items: start; min-width: 0;
+  padding: 14px; border: 2px solid var(--line); border-radius: 16px; transition: border-color .2s;
+}
+.solved .choices { margin-top: 6px; }
+.solved.ok { border-color: var(--ok); }
+.solved.bad { border-color: var(--bad); }
+
+/* завдання 4 */
+.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.rcard {
+  --cc: var(--sky);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lines lines" "tray mon";
+  gap: 10px 8px; align-items: end; min-width: 0;
+  padding: 14px; border: 2.5px solid var(--cc); border-radius: 20px;
+  background: color-mix(in srgb, var(--cc) 10%, var(--surface));
+}
+.rcard .lines { grid-area: lines; display: grid; gap: 4px; justify-items: start; }
+.rcard .tray, .rcard .note { grid-area: tray; align-self: center; }
+.rcard .monster { grid-area: mon; line-height: 0; }
+.rcard .eq { font-size: 1.45rem; }
+.rcard .step { font-size: 1.25rem; }
+.tray-label { font: 800 .85rem var(--body); color: var(--muted); margin-bottom: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.blank {
+  display: inline-grid; place-items: center; vertical-align: middle;
+  min-width: 1.7em; min-height: 1.5em; padding: 0 .25em; margin: 0 .05em;
+  border: 2.5px dashed var(--ink); border-radius: 9px; background: var(--surface); color: var(--ink);
+  font: inherit; cursor: pointer;
+}
+.blank.active {
+  border-color: var(--cur-ring); animation: pulse 1.3s ease-in-out infinite;
+}
+.blank.filled { border-style: solid; }
+.blank:disabled { cursor: default; opacity: 1; }
+.blank.ok { border: 2.5px solid var(--ok); background: var(--ok-bg); color: var(--ok); }
+.blank.bad { border: 2.5px solid var(--bad); background: var(--bad-bg); color: var(--bad); text-decoration: line-through; }
+.fix { font-size: .72em; font-weight: 700; color: var(--ok); margin-left: .3em; vertical-align: middle; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--cur-ring) 25%, transparent); } }
+
+/* результат */
+.result {
+  --rc: var(--line);
+  margin-top: 18px; display: grid; gap: 8px; justify-items: start;
+  padding: 18px clamp(14px, 4vw, 28px) 20px; border-radius: 20px; border: 2.5px solid var(--rc);
+  background: color-mix(in srgb, var(--rc) 8%, var(--surface)); transition: border-color .3s;
+}
+.result h2 { margin: 0; font: 800 1rem var(--body); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.score { font: 700 clamp(2.8rem, 12vw, 4.2rem)/1 var(--display); font-variant-numeric: tabular-nums; }
+.score .of { font-size: .4em; color: var(--muted); font-weight: 600; }
+.result .sub { margin: 0; color: var(--muted); font-weight: 700; }
+.level { display: grid; gap: 2px; }
+.level strong { font: 700 1.35rem/1.2 var(--display); }
+.level span { font-weight: 700; }
+.legend { font-size: .85rem; font-weight: 700; color: var(--muted); }
+
+.rules { margin-top: 18px; padding: 18px clamp(14px, 4vw, 28px); border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.rules h2 { margin: 0 0 8px; font: 700 1.2rem var(--display); }
+.rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; }
+.rule + .rule { border-top: 1px dashed var(--line); }
+.ex { font: 700 1.15rem var(--display); white-space: nowrap; padding: .1em .5em; border-radius: 10px; background: color-mix(in srgb, var(--sky) 12%, transparent); }
+.rule p { margin: 0; flex: 1 1 14rem; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="app">
+  <header class="hero">
+    <h1>Розв’язуємо рівняння</h1>
+    <p>Множення і ділення, 3 клас. У кожного завдання одна спроба. Жовтим підсвічено рівняння, яке ти розв’язуєш зараз. Правильні відповіді стають зеленими, помилки червоними.</p>
+  </header>
+
+  <div class="bar">
+    <div class="count" aria-label="Виконано завдань"><span id="done">0</span> / 12</div>
+    <div class="dots" id="bdots"></div>
+    <button class="btn" id="newBtn" type="button" aria-label="Нова вправа"><span aria-hidden="true">↻</span><span class="lbl"> Нова вправа</span></button>
+  </div>
+
+  <main class="sheet">
+    <div class="strip" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="sheet-in">
+      <section class="task t1">
+        <div class="task-head">
+          <span class="tab">1</span>
+          <h2>Яку дію слід обрати для розв’язання рівняння?<span class="hint">Натисни на потрібну дію.</span></h2>
+        </div>
+        <div class="list" id="t1"></div>
+      </section>
+
+      <section class="task t2">
+        <div class="task-head">
+          <span class="tab">2</span>
+          <h2>Чи правильно розв’язане рівняння?</h2>
+        </div>
+        <div class="pair" id="t2"></div>
+      </section>
+
+      <section class="task t3">
+        <div class="task-head">
+          <span class="tab">3</span>
+          <h2>Обери правильну відповідь.</h2>
+        </div>
+        <div class="list" id="t3"></div>
+      </section>
+
+      <section class="task t4">
+        <div class="task-head">
+          <span class="tab">4</span>
+          <h2>Віднови рівняння.<span class="hint">Натисни на порожню клітинку й обери, що пропущено.</span></h2>
+        </div>
+        <div class="rgrid" id="t4"></div>
+      </section>
+    </div>
+  </main>
+
+  <section class="result" id="result" aria-live="polite">
+    <h2>Результат</h2>
+    <div class="score"><span id="rScore">0</span><span class="of"> з 12</span></div>
+    <p class="sub" id="rSub"></p>
+    <div class="level" id="rLevel" hidden><strong id="rLevelName"></strong><span id="rMsg"></span></div>
+    <div class="dots big" id="rdots" aria-hidden="true"></div>
+    <div class="legend">✓ вірно &nbsp; ✗ помилка</div>
+    <button class="btn" id="newBtn2" type="button" hidden>Нова вправа</button>
+  </section>
+
+  <section class="rules">
+    <h2>Пам’ятка</h2>
+    <div class="rule">
+      <span class="ex">3 · x = 12</span><span class="ex">x = 12 : 3</span>
+      <p>Невідомий множник: добуток ділимо на відомий множник.</p>
+    </div>
+    <div class="rule">
+      <span class="ex">x : 3 = 4</span><span class="ex">x = 4 · 3</span>
+      <p>Невідоме ділене: частку множимо на дільник.</p>
+    </div>
+    <div class="rule">
+      <span class="ex">12 : x = 4</span><span class="ex">x = 12 : 4</span>
+      <p>Невідомий дільник: ділене ділимо на частку.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+/* Генератори завдань: чиста логіка без DOM, щоб її можна було перевірити окремо. */
+const LETTERS = ['x', 'y', 'a', 'b', 'c', 'm', 'n', 'p', 'z'];
+const FORMS = ['mulL', 'mulR', 'divL', 'divR'];
+
+const ri = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const pick = (a) => a[ri(0, a.length - 1)];
+const shuffle = (a) => {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = ri(0, i);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+function calc(a, op, b) {
+  switch (op) {
+    case '·': return a * b;
+    case ':': return b === 0 ? NaN : a / b;
+    case '+': return a + b;
+    case '−': return a - b;
+  }
+  return NaN;
+}
+
+/*
+  Форми рівняння (v — невідоме):
+  mulL: k · v = R     mulR: v · k = R
+  divL: v : k = c     divR: k : v = c
+  sol — рядок розв'язання: v = s1 sop s2
+*/
+function makeEq(form, letter, wide, divisible) {
+  const maxX = wide ? 12 : 9;
+  let k, x, c;
+  switch (form) {
+    case 'mulL':
+      k = ri(2, 9); x = ri(2, maxX);
+      return { form, letter, L: k, op: '·', Rt: null, res: k * x, value: x, sol: { s1: k * x, sop: ':', s2: k } };
+    case 'mulR':
+      k = ri(2, 9); x = ri(2, maxX);
+      return { form, letter, L: null, op: '·', Rt: k, res: k * x, value: x, sol: { s1: k * x, sop: ':', s2: k } };
+    case 'divL':
+      if (divisible) { k = ri(2, 4); c = k * ri(2, 3); } else { k = ri(2, 9); c = ri(2, maxX); }
+      return { form, letter, L: null, op: ':', Rt: k, res: c, value: k * c, sol: { s1: c, sop: '·', s2: k } };
+    default:
+      x = ri(2, 9); c = ri(2, maxX); k = x * c;
+      return { form: 'divR', letter, L: k, op: ':', Rt: null, res: c, value: x, sol: { s1: k, sop: ':', s2: c } };
+  }
+}
+
+function slotsOf(e) {
+  return [
+    { k: 'L', v: e.L === null ? e.letter : e.L },
+    { k: 'op', v: e.op },
+    { k: 'Rt', v: e.Rt === null ? e.letter : e.Rt },
+    { k: 'eq', v: '=' },
+    { k: 'res', v: e.res },
+  ];
+}
+const eqText = (e) => slotsOf(e).map((s) => s.v).join(' ');
+const eqKey = (e) => [e.form, e.L, e.Rt, e.res].join('|');
+const solText = (e) => `${e.letter} = ${e.sol.s1} ${e.sol.sop} ${e.sol.s2}`;
+function verifyText(e) {
+  const L = e.L === null ? e.value : e.L;
+  const R = e.Rt === null ? e.value : e.Rt;
+  return `${L} ${e.op} ${R} = ${e.res}`;
+}
+
+/* Чи виконується рівняння з підставленим значенням і можливими заміннами клітинок */
+function holdsEq(e, repl) {
+  const v = e.value;
+  const L = repl.L !== undefined ? repl.L : (e.L === null ? v : e.L);
+  const R = repl.Rt !== undefined ? repl.Rt : (e.Rt === null ? v : e.Rt);
+  const op = repl.op !== undefined ? repl.op : e.op;
+  const res = repl.res !== undefined ? repl.res : e.res;
+  return calc(L, op, R) === res;
+}
+
+const actionFor = (form) => (form === 'divL' ? 'множення' : 'ділення');
+const RULES = {
+  mulL: 'Невідомий множник: добуток ділимо на відомий множник.',
+  mulR: 'Невідомий множник: добуток ділимо на відомий множник.',
+  divL: 'Невідоме ділене: частку множимо на дільник.',
+  divR: 'Невідомий дільник: ділене ділимо на частку.',
+};
+
+/* Завдання 1: яку дію обрати */
+function genAction() {
+  for (;;) {
+    const forms = shuffle(['divL', pick(['mulL', 'mulR', 'divR']), pick(FORMS), pick(FORMS)]);
+    const letters = shuffle(LETTERS).slice(0, 4);
+    const eqs = forms.map((f, i) => makeEq(f, letters[i], true));
+    if (new Set(eqs.map(eqKey)).size === 4) {
+      return eqs.map((e) => ({ e, answer: actionFor(e.form) }));
+    }
+  }
+}
+
+/* Завдання 2: чи правильно розв'язане рівняння */
+function makeSolved(form, letter, right) {
+  for (;;) {
+    const e = makeEq(form, letter, false, !right && form === 'divL');
+    const { s1, sop, s2 } = e.sol;
+    if (right) return { e, right: true, kind: 'ok', shown: { op: sop, val: e.value } };
+    const flip = sop === ':' ? '·' : ':';
+    let wrongVal = NaN;
+    if (flip === '·') wrongVal = s1 * s2;
+    else if (s1 % s2 === 0) wrongVal = s1 / s2;
+    const canOp = Number.isInteger(wrongVal) && wrongVal > 0 && wrongVal !== e.value && wrongVal <= 200;
+    if (canOp && Math.random() < 0.7) {
+      return { e, right: false, kind: 'op', shown: { op: flip, val: wrongVal } };
+    }
+    const val = e.value + pick([-2, -1, 1, 2]);
+    if (val < 1 || val === e.value) continue;
+    return { e, right: false, kind: 'arith', shown: { op: sop, val } };
+  }
+}
+function genCheck() {
+  const forms = shuffle(FORMS).slice(0, 2);
+  const letters = shuffle(LETTERS).slice(0, 2);
+  const rights = shuffle([true, false]);
+  return forms.map((f, i) => makeSolved(f, letters[i], rights[i]));
+}
+
+/* Завдання 3: обери правильну відповідь */
+function numOptions(e) {
+  const x = e.value;
+  const set = new Set([x]);
+  const { s1, sop, s2 } = e.sol;
+  const flip = sop === ':' ? '·' : ':';
+  const w = flip === '·' ? s1 * s2 : (s1 % s2 === 0 ? s1 / s2 : NaN);
+  if (Number.isInteger(w) && w > 0 && w !== x && w <= 200) set.add(w);
+  const extras = shuffle([x + 1, x - 1, x + 2, x - 2, x + 3, e.res, e.res + 1].filter((n) => n > 0 && n !== x));
+  for (const n of extras) {
+    if (set.size >= 4) break;
+    set.add(n);
+  }
+  return shuffle([...set]);
+}
+function genChoose() {
+  const forms = shuffle(FORMS).slice(0, 2);
+  const letters = shuffle(LETTERS).slice(0, 2);
+  return forms.map((f, i) => {
+    const e = makeEq(f, letters[i], false);
+    return { e, options: numOptions(e) };
+  });
+}
+
+/* Завдання 4: віднови рівняння (дві пропущені клітинки на картці) */
+function genRestore(letter) {
+  for (let t = 0; t < 400; t++) {
+    const form = pick(FORMS);
+    const e = makeEq(form, letter, false);
+    const known = e.L !== null ? e.L : e.Rt;
+    const unkSlot = e.L === null ? 'L' : 'Rt';
+    const knownSlot = e.L !== null ? 'L' : 'Rt';
+    const t1 = pick(['var', 'op', 'known', 'res']);
+    const t2 = t1 === 'known' ? 'res' : t1 === 'res' ? 'known' : pick(['known', 'res']);
+    const val = { known, res: e.res };
+    const other = { known: e.res, res: known };
+    const s1Role = form === 'divR' ? 'known' : 'res';
+
+    let b1;
+    if (t1 === 'var') {
+      const others = shuffle(LETTERS.filter((l) => l !== letter)).slice(0, 3);
+      b1 = { line: 1, slot: unkSlot, correct: letter, opts: shuffle([letter, ...others]) };
+    } else if (t1 === 'op') {
+      const swapped = e.op === '·' ? ':' : '·';
+      if (holdsEq(e, { op: swapped })) continue;
+      const ops = ['·', ':', '+', '−'].filter((o) => o === e.op || !holdsEq(e, { op: o }));
+      b1 = { line: 1, slot: 'op', correct: e.op, opts: shuffle(ops) };
+    } else {
+      const slot = t1 === 'known' ? knownSlot : 'res';
+      const v = val[t1];
+      const cands = shuffle([other[t1], v + 1, v - 1, v + 2, v - 2, v + 3, e.value, v * 2]);
+      const good = [];
+      for (const n of cands) {
+        if (!Number.isInteger(n) || n < 1 || n === v || good.includes(n)) continue;
+        if (holdsEq(e, { [slot]: n })) continue;
+        good.push(n);
+        if (good.length === 3) break;
+      }
+      if (good.length < 3) continue;
+      b1 = { line: 1, slot, correct: v, opts: shuffle([v, ...good]) };
+    }
+
+    const slot2 = s1Role === t2 ? 's1' : 's2';
+    const v2 = val[t2];
+    const cands2 = shuffle([other[t2], v2 + 1, v2 - 1, v2 + 2, v2 - 2, v2 + 3, e.value, v2 * 2]);
+    const good2 = [];
+    for (const n of cands2) {
+      if (!Number.isInteger(n) || n < 1 || n === v2 || good2.includes(n)) continue;
+      const a = slot2 === 's1' ? n : e.sol.s1;
+      const b = slot2 === 's2' ? n : e.sol.s2;
+      if (calc(a, e.sol.sop, b) === e.value) continue;
+      good2.push(n);
+      if (good2.length === 3) break;
+    }
+    if (good2.length < 3) continue;
+    const b2 = { line: 2, slot: slot2, correct: v2, opts: shuffle([v2, ...good2]) };
+    return { e, letter, blanks: [b1, b2] };
+  }
+  throw new Error('genRestore: не вдалося згенерувати картку');
+}
+function genRestoreSet() {
+  for (;;) {
+    const letters = shuffle(LETTERS).slice(0, 4);
+    const set = letters.map((l) => genRestore(l));
+    if (new Set(set.map((g) => eqKey(g.e))).size === 4) return set;
+  }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    calc, makeEq, slotsOf, eqText, eqKey, solText, verifyText, holdsEq, actionFor, RULES,
+    genAction, genCheck, genChoose, genRestore, genRestoreSet, numOptions, makeSolved,
+  };
+}
+
+/* Інтерфейс: збирає завдання з генераторів, перевіряє відповіді, рахує результат. */
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const TOTAL = 12;
+  const motion = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+  const CHIPCOL = ['pink', 'violet', 'sky', 'amber', 'lime'];
+
+  function h(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function chip(text, color, fn) {
+    const b = h('button', 'chip', text);
+    b.type = 'button';
+    b.style.setProperty('--chip-c', 'var(--' + color + ')');
+    if (fn) b.addEventListener('click', fn);
+    return b;
+  }
+
+  let items = [];
+  let current = null;
+  let timer = null;
+  let barDots = [];
+  let resDots = [];
+
+  /* Прості намальовані «чудики» для четвертого завдання */
+  function monster(i) {
+    const eye = (x, y, r) =>
+      `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff"/><circle cx="${x + 1}" cy="${y + 1}" r="${(r * 0.45).toFixed(1)}" fill="#1E2B4A"/>`;
+    const mouth = (d) => `<path d="${d}" stroke="#1E2B4A" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    let body = '';
+    switch (i % 4) {
+      case 0:
+        body =
+          '<path d="M20 64q-4 10-11 8M60 64q4 10 11 8" stroke="#5B7CFA" stroke-width="6" stroke-linecap="round" fill="none"/>' +
+          '<ellipse cx="40" cy="46" rx="31" ry="25" fill="#5B7CFA"/>' + eye(27, 38, 7) + eye(40, 30, 8) + eye(53, 38, 7) + mouth('M30 54q10 9 20 0');
+        break;
+      case 1:
+        body =
+          '<path d="M13 30 22 8l12 18M46 26 58 8l9 22" fill="#8B6CE0"/>' +
+          '<rect x="10" y="22" width="60" height="50" rx="24" fill="#8B6CE0"/>' + eye(40, 42, 13) + mouth('M29 62q11 8 22 0');
+        break;
+      case 2:
+        body =
+          '<path d="M28 44 22 18M37 42 36 14M46 42 48 14M54 44 60 18" stroke="#6DBE45" stroke-width="4" stroke-linecap="round"/>' +
+          '<ellipse cx="40" cy="56" rx="27" ry="20" fill="#6DBE45"/>' + eye(22, 16, 6) + eye(36, 12, 6) + eye(48, 12, 6) + eye(60, 16, 6) + mouth('M31 62q9 7 18 0');
+        break;
+      default: {
+        const pts = [];
+        for (let k = 0; k < 18; k++) {
+          const r = k % 2 ? 24 : 36;
+          const a = (Math.PI * 2 * k) / 18;
+          pts.push((40 + r * Math.cos(a)).toFixed(1) + ',' + (40 + r * Math.sin(a)).toFixed(1));
+        }
+        body = `<polygon points="${pts.join(' ')}" fill="#3FA7E0"/>` + eye(40, 36, 11) + mouth('M30 56q10 8 20 0');
+      }
+    }
+    return `<svg viewBox="0 0 80 80" width="58" height="58" aria-hidden="true" focusable="false">${body}</svg>`;
+  }
+
+  /* ---------- стан ---------- */
+  function setCurrent(it) {
+    if (current && current !== it) current.el.classList.remove('current');
+    current = it;
+    if (it && !it.answered) it.el.classList.add('current');
+  }
+  function nextOpen(i) {
+    for (let k = 1; k <= items.length; k++) {
+      const it = items[(i + k) % items.length];
+      if (!it.answered) return it;
+    }
+    return null;
+  }
+  function ensureVisible(el) {
+    if (!el.isConnected) return;
+    const bar = $('.bar').getBoundingClientRect().bottom + 12;
+    const r = el.getBoundingClientRect();
+    if (r.top < bar || r.bottom > innerHeight - 10) {
+      scrollTo({ top: Math.max(0, scrollY + r.top - bar), behavior: motion() });
+    }
+  }
+  function levelOf(n) {
+    if (n >= 10) return ['Високий рівень', 'Чудово! Ти впевнено розв’язуєш рівняння.', 'ok'];
+    if (n >= 7) return ['Достатній рівень', 'Добре! Ще трохи практики, і буде ідеально.', 'sky'];
+    if (n >= 4) return ['Середній рівень', 'Непогано. Прочитай пам’ятку нижче й спробуй нову вправу.', 'amber'];
+    return ['Початковий рівень', 'Не засмучуйся. Прочитай пам’ятку нижче й спробуй ще раз.', 'amber'];
+  }
+  function refresh() {
+    const done = items.filter((i) => i.answered).length;
+    const good = items.filter((i) => i.correct).length;
+    $('#done').textContent = done;
+    $('#rScore').textContent = good;
+    items.forEach((it, i) => {
+      const cls = 'dot' + (it.answered ? (it.correct ? ' ok' : ' bad') : '');
+      const txt = it.answered ? (it.correct ? '✓' : '✗') : '';
+      [barDots[i], resDots[i]].forEach((d) => {
+        d.className = cls;
+        d.textContent = txt;
+      });
+      barDots[i].setAttribute('aria-label', 'Завдання ' + (i + 1) + (it.answered ? (it.correct ? ': вірно' : ': помилка') : ': ще не виконано'));
+    });
+    const all = done === items.length;
+    const panel = $('#result');
+    panel.classList.toggle('done', all);
+    $('#rLevel').hidden = !all;
+    $('#newBtn2').hidden = !all;
+    if (all) {
+      const [name, msg, col] = levelOf(good);
+      $('#rLevelName').textContent = name;
+      $('#rMsg').textContent = msg;
+      $('#rSub').textContent = good === TOTAL ? 'Жодної помилки!' : 'Помилок: ' + (TOTAL - good) + '. Червоні відповіді показують, де саме.';
+      panel.style.setProperty('--rc', 'var(--' + col + ')');
+    } else {
+      $('#rSub').textContent = done
+        ? 'Виконано ' + done + ' з ' + TOTAL + '. Підсумок з’явиться після останнього завдання.'
+        : 'Відповідай на завдання. Підсумок з’явиться після останнього.';
+      panel.style.removeProperty('--rc');
+    }
+  }
+  function finish(item, ok) {
+    if (item.answered) return;
+    item.answered = true;
+    item.correct = ok;
+    item.el.classList.remove('current');
+    item.el.classList.add(ok ? 'ok' : 'bad');
+    refresh();
+    const nxt = nextOpen(item.id);
+    setCurrent(nxt);
+    if (nxt) {
+      setTimeout(() => ensureVisible(nxt.el), 350);
+    } else {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const r = $('#result');
+        if (r.isConnected) r.scrollIntoView({ behavior: motion(), block: 'center' });
+      }, 1300);
+    }
+  }
+  function addItem(container, build) {
+    const item = { id: items.length, answered: false, correct: false, el: null };
+    items.push(item);
+    const el = build(item);
+    el.classList.add('item');
+    item.el = el;
+    const mark = () => {
+      if (!item.answered) setCurrent(item);
+    };
+    el.addEventListener('pointerdown', mark);
+    el.addEventListener('focusin', mark);
+    container.appendChild(el);
+  }
+
+  /* Спільна логіка вибору однієї з кнопок */
+  function wire(item, btns, correctIdx, note, okMsg, badMsg) {
+    btns.forEach((b, i) =>
+      b.addEventListener('click', () => {
+        if (item.answered) return;
+        const ok = i === correctIdx;
+        btns.forEach((x) => (x.disabled = true));
+        b.classList.add(ok ? 'ok' : 'bad');
+        if (!ok) btns[correctIdx].classList.add('reveal');
+        note.className = 'note ' + (ok ? 'ok' : 'bad');
+        note.textContent = ok ? okMsg : badMsg;
+        finish(item, ok);
+      })
+    );
+  }
+
+  /* ---------- завдання 1 ---------- */
+  function buildAction(item, g, idx) {
+    const el = h('div', 'row');
+    const eq = h('div', 'eq', eqText(g.e));
+    const ch = h('div', 'choices');
+    const note = h('div', 'note');
+    note.setAttribute('aria-live', 'polite');
+    const btns = [chip('множення', CHIPCOL[idx % 4]), chip('ділення', 'lime')];
+    const ci = g.answer === 'множення' ? 0 : 1;
+    wire(item, btns, ci, note, 'Вірно! ' + RULES[g.e.form], 'Не зовсім. Правильна дія — ' + g.answer + '. ' + RULES[g.e.form]);
+    ch.append(...btns);
+    el.append(eq, ch, note);
+    return el;
+  }
+
+  /* ---------- завдання 2 ---------- */
+  function buildCheck(item, s) {
+    const e = s.e;
+    const el = h('div', 'solved');
+    const eq = h('div', 'eq', eqText(e));
+    const l2 = h('div', 'step', `${e.letter} = ${e.sol.s1} ${s.shown.op} ${e.sol.s2}`);
+    const l3 = h('div', 'step', `${e.letter} = ${s.shown.val}`);
+    const ch = h('div', 'choices');
+    const note = h('div', 'note');
+    note.setAttribute('aria-live', 'polite');
+    const btns = [chip('так', 'lime'), chip('ні', 'violet')];
+    const correctAction = e.sol.sop === ':' ? 'ділення' : 'множення';
+    let explain;
+    if (s.right) explain = 'Рівняння розв’язано правильно: ' + solText(e) + ' = ' + e.value + '.';
+    else if (s.kind === 'op') explain = 'Помилка у виборі дії. Правильна дія — ' + correctAction + ': ' + solText(e) + ' = ' + e.value + '.';
+    else explain = 'Помилка в обчисленні: ' + e.sol.s1 + ' ' + e.sol.sop + ' ' + e.sol.s2 + ' = ' + e.value + '.';
+    wire(item, btns, s.right ? 0 : 1, note, 'Вірно! ' + explain, 'Не зовсім. ' + explain);
+    ch.append(...btns);
+    el.append(eq, l2, l3, ch, note);
+    return el;
+  }
+
+  /* ---------- завдання 3 ---------- */
+  function buildChoose(item, g) {
+    const e = g.e;
+    const el = h('div', 'row');
+    const eq = h('div', 'eq', eqText(e));
+    const ch = h('div', 'choices');
+    const note = h('div', 'note');
+    note.setAttribute('aria-live', 'polite');
+    const btns = g.options.map((o, i) => chip(String(o), ['lime', 'sky', 'amber', 'pink'][i % 4]));
+    const check = verifyText(e);
+    wire(item, btns, g.options.indexOf(e.value), note, 'Вірно! Перевірка: ' + check + '.', 'Не зовсім. Правильно: ' + e.letter + ' = ' + e.value + '. Перевірка: ' + check + '.');
+    ch.append(...btns);
+    el.append(eq, ch, note);
+    return el;
+  }
+
+  /* ---------- завдання 4 ---------- */
+  function buildRestore(item, g, idx) {
+    const e = g.e;
+    const el = h('div', 'rcard');
+    el.style.setProperty('--cc', 'var(--' + ['sky', 'violet', 'lime', 'amber'][idx % 4] + ')');
+    const lines = h('div', 'lines');
+    const fills = [null, null];
+    const blankEls = g.blanks.map((b, i) => {
+      const be = h('button', 'blank', '?');
+      be.type = 'button';
+      be.setAttribute('aria-label', 'Пропущене місце ' + (i + 1));
+      be.addEventListener('click', () => {
+        if (!item.answered) setActive(i);
+      });
+      return be;
+    });
+
+    const l1 = h('div', 'eq');
+    slotsOf(e).forEach((s, i) => {
+      if (i) l1.append(' ');
+      const b = g.blanks.findIndex((x) => x.line === 1 && x.slot === s.k);
+      l1.append(b >= 0 ? blankEls[b] : String(s.v));
+    });
+    const l2 = h('div', 'step');
+    l2.append(g.letter + ' = ');
+    ['s1', 'sop', 's2'].forEach((k, i) => {
+      if (i) l2.append(' ');
+      if (k === 'sop') {
+        l2.append(e.sol.sop);
+        return;
+      }
+      const b = g.blanks.findIndex((x) => x.line === 2 && x.slot === k);
+      l2.append(b >= 0 ? blankEls[b] : String(e.sol[k]));
+    });
+    const l3 = h('div', 'step', g.letter + ' = ' + e.value);
+    lines.append(l1, l2, l3);
+
+    const tray = h('div', 'tray');
+    const lab = h('div', 'tray-label', 'Обери, що пропущено:');
+    const chips = h('div', 'chips');
+    tray.append(lab, chips);
+    const note = h('div', 'note');
+    note.setAttribute('aria-live', 'polite');
+    const mon = h('div', 'monster');
+    mon.innerHTML = monster(idx);
+
+    function setActive(i) {
+      blankEls.forEach((b, j) => b.classList.toggle('active', j === i));
+      chips.replaceChildren(
+        ...g.blanks[i].opts.map((o, k) => {
+          const c = chip(String(o), CHIPCOL[k % 4], () => fill(i, o));
+          c.classList.add('small');
+          return c;
+        })
+      );
+    }
+    function fill(i, o) {
+      if (item.answered) return;
+      fills[i] = o;
+      blankEls[i].textContent = String(o);
+      blankEls[i].classList.add('filled');
+      const nxt = fills.findIndex((f) => f === null);
+      if (nxt >= 0) setActive(nxt);
+      else grade();
+    }
+    function grade() {
+      let all = true;
+      g.blanks.forEach((b, i) => {
+        const ok = String(fills[i]) === String(b.correct);
+        all = all && ok;
+        const be = blankEls[i];
+        be.classList.remove('active');
+        be.classList.add(ok ? 'ok' : 'bad');
+        be.disabled = true;
+        if (!ok) be.after(h('span', 'fix', '→ ' + b.correct));
+      });
+      tray.replaceWith(note);
+      note.className = 'note ' + (all ? 'ok' : 'bad');
+      note.textContent = all
+        ? 'Вірно! Рівняння відновлено.'
+        : 'Не зовсім. Правильно: ' + eqText(e) + '; ' + solText(e) + '; ' + e.letter + ' = ' + e.value + '.';
+      finish(item, all);
+    }
+
+    el.append(lines, tray, mon);
+    setActive(0);
+    return el;
+  }
+
+  /* ---------- збірка сторінки ---------- */
+  function mkDots(container, asButtons) {
+    const out = [];
+    for (let i = 0; i < TOTAL; i++) {
+      const d = h(asButtons ? 'button' : 'span', 'dot');
+      if (asButtons) {
+        d.type = 'button';
+        d.addEventListener('click', () => {
+          const it = items[i];
+          if (!it) return;
+          if (!it.answered) setCurrent(it);
+          ensureVisible(it.el);
+        });
+      }
+      container.appendChild(d);
+      out.push(d);
+    }
+    return out;
+  }
+
+  function build() {
+    clearTimeout(timer);
+    items = [];
+    current = null;
+    ['#t1', '#t2', '#t3', '#t4'].forEach((s) => $(s).replaceChildren());
+    $('#bdots').replaceChildren();
+    $('#rdots').replaceChildren();
+
+    genAction().forEach((g, i) => addItem($('#t1'), (it) => buildAction(it, g, i)));
+    genCheck().forEach((s) => addItem($('#t2'), (it) => buildCheck(it, s)));
+    genChoose().forEach((g) => addItem($('#t3'), (it) => buildChoose(it, g)));
+    genRestoreSet().forEach((g, i) => addItem($('#t4'), (it) => buildRestore(it, g, i)));
+
+    barDots = mkDots($('#bdots'), true);
+    resDots = mkDots($('#rdots'), false);
+    setCurrent(items[0]);
+    refresh();
+  }
+
+  function restart() {
+    build();
+    scrollTo({ top: 0, behavior: 'auto' });
+  }
+  $('#newBtn').addEventListener('click', restart);
+  $('#newBtn2').addEventListener('click', restart);
+  build();
+})();
+
+</script>
+
+</body></html>
